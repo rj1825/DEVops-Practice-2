@@ -1,0 +1,32 @@
+# Local registry dir
+.terraform/
+.terraform.lock.hcl
+
+# State files
+*.tfstate
+*.tfstate.backup
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude all .tfvars files
+*.tfvars
+*.tfvars.json
+
+# Ignore override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Include tfplan files
+*.tfplan
+
+# CLI config files
+.terraformrc
+terraform.rc
+
+# Exclude generated zip files and packaging directories
+terraform/files/
+*.zip
