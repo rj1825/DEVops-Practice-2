@@ -23,20 +23,24 @@ pipeline {
 
         stage('Run Containerized Tests') {
             steps {
-                echo 'Building container to run automated unit tests...'
-                // Build a temporary image and execute unittest suite inside the container
-                sh "docker build -t ${IMAGE_NAME}-test -f Dockerfile ."
-                sh "docker run --rm ${IMAGE_NAME}-test python test_app.py"
-                echo 'Unit tests completed successfully!'
+                dir('project 6') {
+                    echo 'Building container to run automated unit tests...'
+                    // Build a temporary image and execute unittest suite inside the container
+                    sh "docker build -t ${IMAGE_NAME}-test -f Dockerfile ."
+                    sh "docker run --rm ${IMAGE_NAME}-test python test_app.py"
+                    echo 'Unit tests completed successfully!'
+                }
             }
         }
 
         stage('Build Production Image') {
             steps {
-                echo "Building production-grade Docker image..."
-                // Build and tag with both commit hash and 'latest'
-                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile ."
-                sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
+                dir('project 6') {
+                    echo "Building production-grade Docker image..."
+                    // Build and tag with both commit hash and 'latest'
+                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile ."
+                    sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
+                }
             }
         }
 
