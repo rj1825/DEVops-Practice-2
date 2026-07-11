@@ -1,0 +1,6 @@
+# Jenkins home data folder (contains passwords, workspace, configs)
+jenkins_home/
+
+# OS specific files
+.DS_Store
+Thumbs.db

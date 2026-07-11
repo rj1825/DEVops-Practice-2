@@ -11,3 +11,6 @@ services:
       # Sharing the host docker daemon socket so Jenkins can build containers
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
