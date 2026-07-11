@@ -5,7 +5,7 @@ pipeline {
         // ID of credentials stored in Jenkins (Username/Password type)
         DOCKER_HUB_CREDENTIALS_ID = 'docker-hub-credentials'
         // Target Docker Hub repository namespace
-        IMAGE_NAME = 'kuncharohitkumar2/flask-app'
+        IMAGE_NAME = 'rohitkumar1825/flask-app'
         // Dynamically get git commit hash
         IMAGE_TAG = ""
     }
