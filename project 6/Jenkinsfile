@@ -1,0 +1,79 @@
+pipeline {
+    agent any
+
+    environment {
+        // ID of credentials stored in Jenkins (Username/Password type)
+        DOCKER_HUB_CREDENTIALS_ID = 'docker-hub-credentials'
+        // Target Docker Hub repository namespace
+        IMAGE_NAME = 'kuncharohitkumar2/flask-app'
+        // Dynamically get git commit hash
+        IMAGE_TAG = ""
+    }
+
+    stages {
+        stage('Initialize') {
+            steps {
+                script {
+                    // Extract short git commit hash
+                    IMAGE_TAG = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    echo "Initializing build for branch: ${env.BRANCH_NAME} (Commit: ${IMAGE_TAG})"
+                }
+            }
+        }
+
+        stage('Run Containerized Tests') {
+            steps {
+                echo 'Building container to run automated unit tests...'
+                // Build a temporary image and execute unittest suite inside the container
+                sh "docker build -t ${IMAGE_NAME}-test -f Dockerfile ."
+                sh "docker run --rm ${IMAGE_NAME}-test python test_app.py"
+                echo 'Unit tests completed successfully!'
+            }
+        }
+
+        stage('Build Production Image') {
+            steps {
+                echo "Building production-grade Docker image..."
+                // Build and tag with both commit hash and 'latest'
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile ."
+                sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo 'Branch is main. Initiating registry push...'
+                // Securely load Docker Hub credentials and push
+                withCredentials([usernamePassword(
+                    credentialsId: env.DOCKER_HUB_CREDENTIALS_ID,
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                    sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker push ${IMAGE_NAME}:latest"
+                }
+                echo 'Production images pushed to Docker Hub successfully!'
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up local intermediate Docker images...'
+            // Remove local test image to prevent disk space exhaustion
+            sh "docker rmi -f ${IMAGE_NAME}-test || true"
+            // Logout from Docker Hub
+            sh "docker logout || true"
+        }
+        success {
+            echo "CI/CD Pipeline run succeeded for branch: ${env.BRANCH_NAME}"
+        }
+        failure {
+            echo "CI/CD Pipeline run failed for branch: ${env.BRANCH_NAME}. Check build logs."
+        }
+    }
+}
