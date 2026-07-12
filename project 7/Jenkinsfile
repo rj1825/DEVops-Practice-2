@@ -1,0 +1,108 @@
+pipeline {
+    agent any
+
+    environment {
+        // Credentials stored in Jenkins
+        DOCKER_HUB_CREDENTIALS_ID = 'docker-hub-credentials'
+        GITHUB_CREDENTIALS_ID     = 'github-credentials'
+        
+        // Target Docker Hub repository
+        IMAGE_NAME = 'rohitkumar1825/flask-app'
+        IMAGE_TAG = ""
+    }
+
+    stages {
+        stage('Initialize') {
+            steps {
+                script {
+                    IMAGE_TAG = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    echo "Starting GitOps Build. Target Version/Tag: ${IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Run Containerized Tests') {
+            steps {
+                dir('project 7') {
+                    echo 'Building test container...'
+                    sh "docker build -t ${IMAGE_NAME}-test -f Dockerfile ."
+                    sh "docker run --rm ${IMAGE_NAME}-test python test_app.py"
+                    echo 'Unit tests passed successfully!'
+                }
+            }
+        }
+
+        stage('Build Production Image') {
+            steps {
+                dir('project 7') {
+                    echo "Building production Docker image for tag: ${IMAGE_TAG}..."
+                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile ."
+                    sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo 'Logging in and pushing to Docker Hub...'
+                withCredentials([usernamePassword(
+                    credentialsId: env.DOCKER_HUB_CREDENTIALS_ID,
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh "echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin"
+                    sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker push ${IMAGE_NAME}:latest"
+                }
+                echo 'Production images pushed successfully!'
+            }
+        }
+
+        stage('Update K8s Manifest (GitOps Push)') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo 'Updating deployment manifest with new image tag...'
+                dir('project 7/k8s') {
+                    // Dynamically replace the docker image tag in the deployment manifest
+                    sh "sed -i 's|image: rohitkumar1825/flask-app:.*|image: rohitkumar1825/flask-app:${IMAGE_TAG}|g' deployment.yaml"
+                    
+                    echo 'Pushing updated deployment manifest back to GitHub...'
+                    withCredentials([usernamePassword(
+                        credentialsId: env.GITHUB_CREDENTIALS_ID,
+                        usernameVariable: 'GIT_USER',
+                        passwordVariable: 'GIT_PASS'
+                    )]) {
+                        // Avoid infinite trigger loops by using [skip ci] or [ci skip] in commit message
+                        sh """
+                            git config user.name "jenkins-ci-bot"
+                            git config user.email "jenkins-ci-bot@users.noreply.github.com"
+                            git add deployment.yaml
+                            git commit -m "chore(gitops): update image tag to ${IMAGE_TAG} [skip ci]" || echo "No changes to commit"
+                            git push https://${GIT_USER}:${GIT_PASS}@github.com/rj1825/DEVops-Practice-2.git HEAD:main
+                        """
+                    }
+                    echo 'GitOps manifest successfully updated!'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up build environment...'
+            sh "docker rmi -f ${IMAGE_NAME}-test || true"
+            sh "docker logout || true"
+        }
+        success {
+            echo "GitOps pipeline run completed successfully!"
+        }
+        failure {
+            echo "GitOps pipeline run failed. Check build logs."
+        }
+    }
+}
