@@ -18,7 +18,7 @@ spec:
       containers:
       - name: flask-app
         # This tag is updated dynamically by the Jenkins CI pipeline
-        image: rohitkumar1825/flask-app:07f1c07
+        image: rohitkumar1825/flask-app:8817bbe
         ports:
         - containerPort: 5000
         imagePullPolicy: IfNotPresent
