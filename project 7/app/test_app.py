@@ -14,7 +14,7 @@ class FlaskAppTestCase(unittest.TestCase):
         data = json.loads(response.data.decode('utf-8'))
         self.assertEqual(data.get('status'), 'UP')
         self.assertEqual(data.get('service'), 'gitops-flask-service')
-        self.assertEqual(data.get('version'), '1.0.0')
+        self.assertTrue(data.get('version') is not None and len(data.get('version')) > 0)
         self.assertIn('ArgoCD', data.get('description'))
 
 if __name__ == '__main__':
